@@ -6,15 +6,15 @@ from urllib import request
 import gzip
 import pickle
 import os
-from numpy.random import normal
-import tqdm
+import random as r
+from tqdm import tqdm
 
 
 # %% Cell 2
 class simple_NN:
-    def __init__(self, input_x: list, target: list) -> None:
-        self.x = input_x
-        self.t = target
+    def __init__(self) -> None:
+        self.x = [1.0, -1.0]
+        self.t = [1.0, 0.0]
         self.k = [0.0, 0.0, 0.0]
         self.h = [0.0, 0.0, 0.0]
         self.w = [[1.0, 1.0, 1.0], [-1.0, -1.0, -1.0]]
@@ -34,6 +34,16 @@ class simple_NN:
         self.d_k = [0.0, 0.0, 0.0]
         self.d_w = [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
         self.d_b = [0.0, 0.0, 0.0]
+
+    def initialize_weights(self, strategy="random") -> None:
+        if strategy == "random":
+            for j in range(len(self.k)):
+                for i in range(len(self.x)):
+                    self.w[i][j] = r.uniform(-1.0, 1.0)
+
+            for j in range(len(self.o)):
+                for i in range(len(self.h)):
+                    self.v[i][j] = r.uniform(-1.0, 1.0)
 
     def print_grads(self) -> None:
         print("Gradients:")
@@ -61,19 +71,22 @@ class simple_NN:
         sum_exp_x = sum(exp_x)
         return [xi / sum_exp_x for xi in exp_x]
 
-    def forward(self) -> None:
+    def forward(self, x, t) -> None:
+        self.x = x
+        self.t = t
+
         for j in range(len(self.k)):
+            self.k[j] = self.bias_x[j]
             for i in range(len(self.x)):
                 self.k[j] += self.w[i][j] * self.x[i]
-            self.k[j] += self.bias_x[j]
 
         for i in range(len(self.k)):
             self.h[i] = self.sigmoid(self.k[i])
 
         for i in range(len(self.o)):
+            self.o[i] = self.bias_c[i]
             for j in range(len(self.h)):
                 self.o[i] += self.v[j][i] * self.h[j]
-            self.o[i] += self.bias_c[i]
 
         self.y = self.softmax(self.o)
 
@@ -100,15 +113,32 @@ class simple_NN:
                 self.d_w[i][j] = self.d_k[j] * self.x[i]
             self.d_b[j] = self.d_k[j]
 
+    def update(self) -> None:
+        # TODO: Implement this!
+        pass
+
+    def train(self, xtrain, ytrain, epochs=10) -> None:
+        loss_history = []
+        for epoch in tqdm(range(epochs), desc="Epochs"):
+            epoch_loss = 0.0
+            for xtrain_i, xval_i in zip(xtrain, ytrain):
+                self.forward(xtrain_i, xval_i)
+                epoch_loss += self.L
+                self.backward()
+                self.update()
+
+        # TODO: Finish!
+        # avg loss
+
 
 # %% Cell 3
 
 # Ask TA if output for w is correct
 input = [1.0, -1.0]
 target = [1, 0]
-test_NN = simple_NN(input, target)
+test_NN = simple_NN()
 
-test_NN.forward()
+test_NN.forward(input, target)
 test_NN.backward()
 
 test_NN.print_grads()
