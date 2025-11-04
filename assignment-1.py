@@ -18,26 +18,42 @@ class simple_NN:
         self.L = 0.0
 
         # Backpropagation
-        self.d_o = [0.0, 0.0]
         self.d_y = [0.0, 0.0]
+        self.d_o = [0.0, 0.0]
         self.d_v = [[0.0, 0.0], [0.0, 0.0], [0.0, 0.0]]
         self.d_h = [0.0, 0.0, 0.0]
-        self.d_w = [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
-        self.d_k = [0.0, 0.0, 0.0]
         self.d_c = [0.0, 0.0]
+        self.d_k = [0.0, 0.0, 0.0]
+        self.d_w = [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
         self.d_b = [0.0, 0.0, 0.0]
 
+    def print_grads(self):
+        print("Gradients:")
+        gradient_list = ["y", "o", "v", "h", "c", "k", "w", "b"]
+        gradient_values = [
+            self.d_y,
+            self.d_o,
+            self.d_v,
+            self.d_h,
+            self.d_c,
+            self.d_k,
+            self.d_w,
+            self.d_b,
+        ]
+        for name, value in zip(gradient_list, gradient_values):
+            print(f"{name}: {value}")
+
     @staticmethod
-    def sigmoid(x):
+    def sigmoid(x) -> float:
         return 1 / (1 + m.exp(-x))
 
     @staticmethod
-    def softmax(x):
+    def softmax(x) -> list[float]:
         exp_x = [m.exp(xi) for xi in x]
         sum_exp_x = sum(exp_x)
         return [xi / sum_exp_x for xi in exp_x]
 
-    def forward(self):
+    def forward(self) -> None:
         for j in range(len(self.k)):
             for i in range(len(self.x)):
                 self.k[j] += self.w[i][j] * self.x[i]
@@ -56,7 +72,7 @@ class simple_NN:
         # TODO: Check if this is correct.
         self.L = sum(-m.log(y) * t for y, t in zip(self.y, self.t))
 
-    def backward(self):
+    def backward(self) -> None:
         # TODO: Do we really need d_y? Ask ta!
         self.d_y = [(-1 / y) * t for y, t in zip(self.y, self.t)]
         self.d_o = [y - t for y, t in zip(self.y, self.t)]
@@ -75,3 +91,16 @@ class simple_NN:
             for i in range(len(self.x)):
                 self.d_w[i][j] = self.d_k[j] * self.x[i]
             self.d_b[j] = self.d_k[j]
+
+
+# %% Cell 3
+
+# Ask TA if output for w is correct
+input = [1.0, -1.0]
+target = [1.0, 0.0]
+test_NN = simple_NN(input, target)
+
+test_NN.forward()
+test_NN.backward()
+
+test_NN.print_grads()
