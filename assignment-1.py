@@ -1,12 +1,13 @@
 # %% Cell 1
-import math as m
-from multiprocessing import Value
-import numpy as np
-from urllib import request
 import gzip
-import pickle
+import math as m
 import os
+import pickle
 import random as r
+from urllib import request
+
+import matplotlib.pyplot as plt
+import numpy as np
 from tqdm import tqdm
 
 
@@ -19,8 +20,8 @@ class simple_NN:
         self.h = [0.0, 0.0, 0.0]
         self.w = [[1.0, 1.0, 1.0], [-1.0, -1.0, -1.0]]
         self.v = [[1.0, 1.0], [-1.0, -1.0], [-1.0, -1.0]]
-        self.bias_x = [0.0, 0.0, 0.0]
-        self.bias_c = [0.0, 0.0]
+        self.b = [0.0, 0.0, 0.0]
+        self.c = [0.0, 0.0]
         self.o = [0.0, 0.0]
         self.y = [0.0, 0.0]
         self.L = 0.0
@@ -76,7 +77,7 @@ class simple_NN:
         self.t = t
 
         for j in range(len(self.k)):
-            self.k[j] = self.bias_x[j]
+            self.k[j] = self.b[j]
             for i in range(len(self.x)):
                 self.k[j] += self.w[i][j] * self.x[i]
 
@@ -84,7 +85,7 @@ class simple_NN:
             self.h[i] = self.sigmoid(self.k[i])
 
         for i in range(len(self.o)):
-            self.o[i] = self.bias_c[i]
+            self.o[i] = self.c[i]
             for j in range(len(self.h)):
                 self.o[i] += self.v[j][i] * self.h[j]
 
@@ -113,22 +114,51 @@ class simple_NN:
                 self.d_w[i][j] = self.d_k[j] * self.x[i]
             self.d_b[j] = self.d_k[j]
 
-    def update(self) -> None:
-        # TODO: Implement this!
-        pass
+    def update(self, lr) -> None:
+        for j in range(len(self.k)):
+            for i in range(len(self.x)):
+                self.w[i][j] = self.w[i][j] - lr * self.d_w[i][j]
 
-    def train(self, xtrain, ytrain, epochs=10) -> None:
+        for j in range(len(self.o)):
+            for i in range(len(self.h)):
+                self.v[i][j] = self.v[i][j] - lr * self.d_v[i][j]
+
+        for i in range(len(self.b)):
+            self.b[i] = self.b[i] - lr * self.d_b[i]
+
+        for i in range(len(self.c)):
+            self.c[i] = self.c[i] - lr * self.d_c[i]
+
+    def train(self, xtrain, ytrain, xeval, yeval, epochs=10, lr=0.02) -> tuple:
         loss_history = []
+        loss_history_eval = []
         for epoch in tqdm(range(epochs), desc="Epochs"):
             epoch_loss = 0.0
-            for xtrain_i, xval_i in zip(xtrain, ytrain):
-                self.forward(xtrain_i, xval_i)
-                epoch_loss += self.L
+            for xtrain_i, ytrain_i in zip(xtrain, ytrain):
+                self.forward(xtrain_i, ytrain_i)
                 self.backward()
-                self.update()
+                self.update(lr)
 
-        # TODO: Finish!
-        # avg loss
+            # Now compute the loss over trained network within epoch
+            for xtrain_i, ytrain_i in zip(xtrain, ytrain):
+                self.forward(xtrain_i, ytrain_i)
+                epoch_loss += self.L
+
+            avg_loss = epoch_loss / len(xtrain)
+            print(f"Epoch {epoch} avg_loss_training: {avg_loss}")
+            loss_history.append(avg_loss)
+
+            # Now evaluate on the evaluation set
+            epoch_loss_eval = 0.0
+            for xeval_i, yeval_i in zip(xeval, yeval):
+                self.forward(xeval_i, yeval_i)
+                epoch_loss_eval += self.L
+
+            avg_loss_eval = epoch_loss_eval / len(xeval)
+            print(f"Epoch {epoch} avg_loss_eval: {avg_loss_eval}")
+            loss_history_eval.append(avg_loss_eval)
+
+        return loss_history, loss_history_eval
 
 
 # %% Cell 3
@@ -282,6 +312,15 @@ def load():
 # %% Cell 6
 
 
+def encode_labels(labels, num_classes) -> list[list]:
+    one_hot_labels = []
+    for label in labels:
+        vec = [0] * num_classes
+        vec[label] = 1
+        one_hot_labels.append(vec)
+    return one_hot_labels
+
+
 def normalize_values(train, val, range: tuple) -> tuple:
     train_min = float("inf")
     train_max = float("-inf")
@@ -296,18 +335,34 @@ def normalize_values(train, val, range: tuple) -> tuple:
     normalized_train = []
     normalized_val = []
 
-    for row_train, row_val in zip(train, val):
-        for i, j in zip(row_train, row_val):
-            train_i = (range[1] - range[0]) * (
-                (i - train_min) / (train_max - train_min)
-            ) + range[0]
+    for mode, norm_list in zip([train, val], [normalized_train, normalized_val]):
+        for row in mode:
+            row_norm = []
+            for i in row:
+                train_i = (range[1] - range[0]) * (
+                    (i - train_min) / (train_max - train_min)
+                ) + range[0]
+                row_norm.append(train_i)
 
-            val_j = (range[1] - range[0]) * (
-                (j - train_min) / (train_max - train_min)
-            ) + range[0]
+            norm_list.append(row_norm)
 
-            normalized_train.append(train_i)
-            normalized_val.append(val_j)
+    # for row_train, row_val in zip(train, val):
+    #     row_train_norm = []
+    #     row_val_norm = []
+    #     for i, j in zip(row_train, row_val):
+    #         train_i = (range[1] - range[0]) * (
+    #             (i - train_min) / (train_max - train_min)
+    #         ) + range[0]
+
+    #         val_j = (range[1] - range[0]) * (
+    #             (j - train_min) / (train_max - train_min)
+    #         ) + range[0]
+
+    #         row_train_norm.append(train_i)
+    #         row_val_norm.append(val_j)
+
+    #     normalized_train.append(row_train_norm)
+    #     normalized_val.append(row_val_norm)
 
     return normalized_train, normalized_val
 
@@ -322,10 +377,27 @@ print(f"xtrain: {xtrain[:10]}")
 print(f"xval: {xval[:10]}")
 
 xtrain_norm, xval_norm = normalize_values(xtrain, xval, (-1, 1))
-# ytrain_norm, yval_norm = normalize_values(ytrain, yval, (0, 1))
+ytrain_enc = encode_labels(ytrain, num_cls)
+yval_enc = encode_labels(yval, num_cls)
 
 print("After norm:")
 print(f"xtrain: {xtrain_norm[:10]}")
 print(f"xval: {xval_norm[:10]}")
 
-# %% Cell 6
+# %% Cell 7
+neural_network_q4 = simple_NN()
+loss_train, loss_eval = neural_network_q4.train(
+    xtrain_norm, ytrain_enc, xval_norm, yval_enc, epochs=50, lr=0.02
+)
+
+# %% Cell 8
+plt.figure(figsize=(15, 10))
+x = range(len(loss_train))
+plt.plot(x, loss_train, label="Train")
+# plt.plot(x, loss_eval, label="Validation")
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
+plt.grid()
+plt.legend()
+
+plt.show()
