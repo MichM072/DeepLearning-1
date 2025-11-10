@@ -401,3 +401,61 @@ plt.grid()
 plt.legend()
 
 plt.show()
+
+
+# %% Cell 9
+class vectorizedNN:
+    def __init__(self) -> None:
+        # Forward
+        self.b = None
+        self.w = None
+        self.k = None
+        self.h = None
+        self.v = None
+        self.y = np.zeros(10)
+        self.c = None
+        self.L = 0.0
+        self.layers = []
+
+        # Backward
+        self.d_y = None
+        self.d_o = None
+        self.d_v = None
+        self.d_h = None
+        self.d_c = None
+        self.d_k = None
+        self.d_w = None
+        self.d_b = None
+
+    def build_layer_1(self, input_size, output_size):
+        if self.w is None:
+            self.w = np.random.randn(output_size, input_size)
+
+        if self.b is None:
+            self.b = np.zeros(output_size)
+
+    def build_layer_2(self, input_size, output_size):
+        if self.v is None:
+            self.v = np.random.randn(output_size, input_size)
+
+        if self.c is None:
+            self.c = np.zeros(output_size)
+
+    def sigmoid(self, k):
+        return 1 / (1 + np.exp(-k))
+
+    def softmax(self, o):
+        exp_o = np.exp(o - np.max(o))
+        return exp_o / np.sum(exp_o, axis=0)
+
+    def forward(self, x, t):
+        self.k = self.w @ x + self.b
+        self.h = self.sigmoid(self.k)
+        self.o = self.v @ self.h + self.c
+        self.y = 0
+
+
+# %% Cell test
+test_NN = vectorizedNN()
+test_NN.build_layer_1(1024, 300)
+test_NN.build_layer_2(300, 10)
