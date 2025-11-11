@@ -37,6 +37,7 @@ class simple_NN:
         self.d_b = [0.0, 0.0, 0.0]
 
     def initialize_weights(self, strategy="random") -> None:
+        # TODO: Ask ta if this random is correct!
         if strategy == "random":
             for j in range(len(self.k)):
                 for i in range(len(self.x)):
@@ -442,20 +443,58 @@ class vectorizedNN:
             self.c = np.zeros(output_size)
 
     def sigmoid(self, k):
-        return 1 / (1 + np.exp(-k))
+        exp_k = np.exp(k - np.max(k))
+        return 1 / (1 + np.exp(-exp_k))
 
     def softmax(self, o):
-        exp_o = np.exp(o - np.max(o))
-        return exp_o / np.sum(exp_o, axis=0)
+        exp_o = np.exp(o - np.max(o, axis=0, keepdims=True))
+        return exp_o / np.sum(exp_o, axis=0, keepdims=True)
 
     def forward(self, x, t):
         self.k = self.w @ x + self.b
         self.h = self.sigmoid(self.k)
         self.o = self.v @ self.h + self.c
-        self.y = 0
+        self.y = self.softmax(self.o)
+        self.L = -np.log(self.y[t])
+
+
+# %% Cell 10
+def vectorized_normalization(train, val, range: tuple) -> tuple:
+    train_min = np.min(train)
+    train_max = np.max(train)
+
+    normalized_train = (range[1] - range[0]) * (
+        (train - train_min) / (train_max - train_min)
+    ) + range[0]
+
+    normalized_val = (range[1] - range[0]) * (
+        (val - train_min) / (train_max - train_min)
+    ) + range[0]
+
+    return normalized_train, normalized_val
+
+
+# %% Cell 11
+(xtrain_mnist, ytrain_mnist), (xval_mnist, yval_mnist), num_cls_mnist = load_mnist()
+# %% Cell 12
+print(f"xtrain shape: {np.array(xtrain_mnist).shape}")
+img_shape = xtrain_mnist.shape[1]
+print(f"ytrain: {ytrain_mnist[:10]}")
+# %% Cell test 2
+print(
+    f"Before norm:{np.max(xtrain_mnist), np.min(xtrain_mnist)}, {np.max(xval_mnist), np.min(xval_mnist)}"
+)
+xtrain_mnist_norm, xval_mnist_norm = vectorized_normalization(
+    np.array(xtrain_mnist), np.array(xval_mnist), (0, 1)
+)
+print(
+    f"After norm:{np.max(xtrain_mnist_norm), np.min(xtrain_mnist_norm)}, {np.max(xval_mnist_norm), np.min(xval_mnist_norm)}"
+)
 
 
 # %% Cell test
 test_NN = vectorizedNN()
-test_NN.build_layer_1(1024, 300)
-test_NN.build_layer_2(300, 10)
+test_NN.build_layer_1(img_shape, 300)
+test_NN.build_layer_2(300, num_cls_mnist)
+test_NN.forward(xtrain_mnist_norm[0], ytrain_mnist[0])
+print(test_NN.L)
