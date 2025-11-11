@@ -4,6 +4,8 @@ import math as m
 import os
 import pickle
 import random as r
+from this import s
+from tkinter.constants import N
 from urllib import request
 
 import matplotlib.pyplot as plt
@@ -408,54 +410,102 @@ plt.show()
 class vectorizedNN:
     def __init__(self) -> None:
         # Forward
-        self.b = None
-        self.w = None
-        self.k = None
-        self.h = None
-        self.v = None
+        self.b = np.empty(0)
+        self.w = np.empty(0)
+        self.k = np.empty(0)
+        self.h = np.empty(0)
+        self.v = np.empty(0)
         self.y = np.zeros(10)
-        self.c = None
+        self.c = np.empty(0)
         self.L = 0.0
         self.layers = []
 
         # Backward
-        self.d_y = None
-        self.d_o = None
-        self.d_v = None
-        self.d_h = None
-        self.d_c = None
-        self.d_k = None
-        self.d_w = None
-        self.d_b = None
+        self.d_y = np.empty(0)
+        self.d_o = np.empty(0)
+        self.d_v = np.empty(0)
+        self.d_h = np.empty(0)
+        self.d_c = np.empty(0)
+        self.d_k = np.empty(0)
+        self.d_w = np.empty(0)
+        self.d_b = np.empty(0)
 
-    def build_layer_1(self, input_size, output_size):
+        # Batch save
+        self.batch_d_w = np.empty(0)
+        self.batch_d_b = np.empty(0)
+        self.batch_d_v = np.empty(0)
+        self.batch_d_c = np.empty(0)
+
+    def save_batch_grads(self) -> None:
+        self.batch_d_w += self.d_w
+        self.batch_d_b += self.d_b
+        self.batch_d_v += self.d_v
+        self.batch_d_c += self.d_c
+
+    def reset_batch_grads(self) -> None:
+        self.batch_d_w = np.empty(0)
+        self.batch_d_b = np.empty(0)
+        self.batch_d_v = np.empty(0)
+        self.batch_d_c = np.empty(0)
+
+    def print_grads(self) -> None:
+        print("Gradients:")
+        gradient_list = ["y", "o", "v", "h", "c", "k", "w", "b"]
+        gradient_values = [
+            self.d_y,
+            self.d_o,
+            self.d_v,
+            self.d_h,
+            self.d_c,
+            self.d_k,
+            self.d_w,
+            self.d_b,
+        ]
+        for name, value in zip(gradient_list, gradient_values):
+            print(f"{name}: {value}")
+
+    def build_layer_1(self, input_size, output_size) -> None:
         if self.w is None:
             self.w = np.random.randn(output_size, input_size)
 
         if self.b is None:
             self.b = np.zeros(output_size)
 
-    def build_layer_2(self, input_size, output_size):
+    def build_layer_2(self, input_size, output_size) -> None:
         if self.v is None:
             self.v = np.random.randn(output_size, input_size)
 
         if self.c is None:
             self.c = np.zeros(output_size)
 
-    def sigmoid(self, k):
+    def sigmoid(self, k) -> np.ndarray:
         exp_k = np.exp(k - np.max(k))
         return 1 / (1 + np.exp(-exp_k))
 
-    def softmax(self, o):
+    def softmax(self, o) -> np.ndarray:
         exp_o = np.exp(o - np.max(o, axis=0, keepdims=True))
         return exp_o / np.sum(exp_o, axis=0, keepdims=True)
 
-    def forward(self, x, t):
+    def forward(self, x, t) -> None:
         self.k = self.w @ x + self.b
         self.h = self.sigmoid(self.k)
         self.o = self.v @ self.h + self.c
         self.y = self.softmax(self.o)
         self.L = -np.log(self.y[t])
+
+    def backward(self, x, t) -> None:
+        # Create one-hot vector for target as 10 classes are reasonably small
+        ot = np.zeros_like(self.y)
+        ot[t] = 1.0
+
+        self.d_y = -(1 / self.y[t])
+        self.d_o = self.y - ot
+        self.d_v = self.d_o @ self.h.T
+        self.d_h = self.v.T @ self.d_o
+        self.d_c = self.d_o
+        self.d_k = self.d_h * self.h * (1 - self.h)
+        self.d_w = self.d_k @ x.T
+        self.d_b = self.d_k
 
 
 # %% Cell 10
