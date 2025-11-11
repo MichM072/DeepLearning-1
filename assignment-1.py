@@ -443,10 +443,10 @@ class vectorizedNN:
         self.batch_d_c += self.d_c
 
     def reset_batch_grads(self) -> None:
-        self.batch_d_w = np.empty(0)
-        self.batch_d_b = np.empty(0)
-        self.batch_d_v = np.empty(0)
-        self.batch_d_c = np.empty(0)
+        self.batch_d_w = np.zeros_like(self.w)
+        self.batch_d_b = np.zeros_like(self.b)
+        self.batch_d_v = np.zeros_like(self.v)
+        self.batch_d_c = np.zeros_like(self.c)
 
     def print_grads(self) -> None:
         print("Gradients:")
@@ -465,29 +465,38 @@ class vectorizedNN:
             print(f"{name}: {value}")
 
     def build_layer_1(self, input_size, output_size) -> None:
-        if self.w is None:
-            self.w = np.random.randn(output_size, input_size)
+        if self.w.size == 0:
+            self.w = np.random.randn(output_size, input_size[0])
+            self.batch_d_w = np.zeros((output_size, input_size[0]))
 
-        if self.b is None:
-            self.b = np.zeros(output_size)
+        if self.b.size == 0:
+            self.b = np.zeros((output_size, 1))
+            self.batch_d_b = np.zeros((output_size, 1))
 
     def build_layer_2(self, input_size, output_size) -> None:
-        if self.v is None:
+        if self.v.size == 0:
             self.v = np.random.randn(output_size, input_size)
+            self.batch_d_v = np.zeros((output_size, input_size))
 
-        if self.c is None:
-            self.c = np.zeros(output_size)
+        if self.c.size == 0:
+            self.c = np.zeros((output_size, 1))
+            self.batch_d_c = np.zeros((output_size, 1))
 
     def sigmoid(self, k) -> np.ndarray:
-        exp_k = np.exp(k - np.max(k))
-        return 1 / (1 + np.exp(-exp_k))
+        # Prevents overflow
+        # Source: https://blog.dailydoseofds.com/p/a-highly-overlooked-point-in-the
+        sig = np.where(k > 0, 1 / (1 + np.exp(-k)), np.exp(k) / (1 + np.exp(k)))
+        return sig
 
     def softmax(self, o) -> np.ndarray:
         exp_o = np.exp(o - np.max(o, axis=0, keepdims=True))
+        # exp_o = np.exp(o)
         return exp_o / np.sum(exp_o, axis=0, keepdims=True)
 
     def forward(self, x, t) -> None:
+        print(f"x: {x}, t: {t}, w: {self.w}")
         self.k = self.w @ x + self.b
+        print(f"self.k: {self.k}")
         self.h = self.sigmoid(self.k)
         self.o = self.v @ self.h + self.c
         self.y = self.softmax(self.o)
@@ -497,7 +506,6 @@ class vectorizedNN:
         # Create one-hot vector for target as 10 classes are reasonably small
         ot = np.zeros_like(self.y)
         ot[t] = 1.0
-
         self.d_y = -(1 / self.y[t])
         self.d_o = self.y - ot
         self.d_v = self.d_o @ self.h.T
@@ -506,6 +514,40 @@ class vectorizedNN:
         self.d_k = self.d_h * self.h * (1 - self.h)
         self.d_w = self.d_k @ x.T
         self.d_b = self.d_k
+
+    def update(self, minibatch_size, lr) -> None:
+        self.w -= lr * (1 / minibatch_size) * self.batch_d_w
+        self.v -= lr * (1 / minibatch_size) * self.batch_d_v
+        self.b -= lr * (1 / minibatch_size) * self.batch_d_b
+        self.c -= lr * (1 / minibatch_size) * self.batch_d_c
+
+    def train(
+        self, xtrain, ytrain, xval, yval, minibatch_size, epochs=10, lr=0.02
+    ) -> list:
+        epoch_loss_history = []
+        for epoch in tqdm(range(epochs), desc="Epochs"):
+            epoch_loss = 0.0
+            i = 0
+            for xtrain_i, ytrain_i in zip(xtrain, ytrain):
+                xtrain_i = xtrain_i.reshape(-1, 1)
+                self.forward(xtrain_i, ytrain_i)
+                self.backward(xtrain_i, ytrain_i)
+                self.save_batch_grads()
+
+                if (i + 1) % minibatch_size == 0:
+                    self.update(minibatch_size, lr)
+                    self.reset_batch_grads()
+                i += 1
+
+            for xtrain_i, ytrain_i in zip(xtrain, ytrain):
+                xtrain_i = xtrain_i.reshape(-1, 1)
+                self.forward(xtrain_i, ytrain_i)
+                epoch_loss += self.L
+
+            epoch_loss = epoch_loss / len(xtrain)
+            epoch_loss_history.append(epoch_loss)
+
+        return epoch_loss_history
 
 
 # %% Cell 10
@@ -528,7 +570,7 @@ def vectorized_normalization(train, val, range: tuple) -> tuple:
 (xtrain_mnist, ytrain_mnist), (xval_mnist, yval_mnist), num_cls_mnist = load_mnist()
 # %% Cell 12
 print(f"xtrain shape: {np.array(xtrain_mnist).shape}")
-img_shape = xtrain_mnist.shape[1]
+img_shape = xtrain_mnist.shape[1:]
 print(f"ytrain: {ytrain_mnist[:10]}")
 # %% Cell test 2
 print(
@@ -546,5 +588,12 @@ print(
 test_NN = vectorizedNN()
 test_NN.build_layer_1(img_shape, 300)
 test_NN.build_layer_2(300, num_cls_mnist)
-test_NN.forward(xtrain_mnist_norm[0], ytrain_mnist[0])
-print(test_NN.L)
+test_NN.train(
+    xtrain_mnist_norm[:100],
+    ytrain_mnist[:100],
+    xval_mnist_norm[:100],
+    yval_mnist[:100],
+    minibatch_size=5,
+    epochs=1,
+    lr=0.01,
+)
