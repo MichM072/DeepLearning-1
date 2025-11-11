@@ -4,8 +4,6 @@ import math as m
 import os
 import pickle
 import random as r
-from this import s
-from tkinter.constants import N
 from urllib import request
 
 import matplotlib.pyplot as plt
@@ -393,17 +391,32 @@ loss_train, loss_eval = neural_network_q4.train(
     xtrain_norm, ytrain_enc, xval_norm, yval_enc, epochs=50, lr=0.02
 )
 
-# %% Cell 8
-plt.figure(figsize=(15, 10))
-x = range(len(loss_train))
-plt.plot(x, loss_train, label="Train")
-# plt.plot(x, loss_eval, label="Validation")
-plt.xlabel("Epoch")
-plt.ylabel("Loss")
-plt.grid()
-plt.legend()
 
-plt.show()
+# %% Cell 8
+def plot_loss(loss, save_img=False, img_title="loss_plot") -> None:
+    plt.figure(figsize=(15, 10))
+    x = range(len(loss))
+    plt.plot(x, loss, label="Train")
+    plt.tick_params(axis="both", which="major", labelsize=14)
+    # plt.plot(x, loss_eval, label="Validation")
+    plt.xlabel("Epoch", fontsize=14, fontweight="bold")
+    plt.ylabel("Loss", fontsize=14, fontweight="bold")
+    plt.grid()
+    plt.legend()
+    plt.tight_layout()
+
+    if save_img:
+        if not os.path.exists("./images"):
+            os.makedirs("./images")
+        plt.savefig(f"./images/{img_title}.png")
+
+    plt.show()
+
+
+try:
+    plot_loss(loss_train)
+except Exception as e:
+    print(e)
 
 
 # %% Cell 9
@@ -466,7 +479,7 @@ class vectorizedNN:
 
     def build_layer_1(self, input_size, output_size) -> None:
         if self.w.size == 0:
-            self.w = np.random.randn(output_size, input_size[0])
+            self.w = np.random.normal(0.0, 0.2, size=(output_size, input_size[0]))
             self.batch_d_w = np.zeros((output_size, input_size[0]))
 
         if self.b.size == 0:
@@ -475,7 +488,7 @@ class vectorizedNN:
 
     def build_layer_2(self, input_size, output_size) -> None:
         if self.v.size == 0:
-            self.v = np.random.randn(output_size, input_size)
+            self.v = np.random.normal(0.0, 0.2, size=(output_size, input_size))
             self.batch_d_v = np.zeros((output_size, input_size))
 
         if self.c.size == 0:
@@ -494,13 +507,11 @@ class vectorizedNN:
         return exp_o / np.sum(exp_o, axis=0, keepdims=True)
 
     def forward(self, x, t) -> None:
-        print(f"x: {x}, t: {t}, w: {self.w}")
         self.k = self.w @ x + self.b
-        print(f"self.k: {self.k}")
         self.h = self.sigmoid(self.k)
         self.o = self.v @ self.h + self.c
         self.y = self.softmax(self.o)
-        self.L = -np.log(self.y[t])
+        self.L = -np.log(self.y[t].item())
 
     def backward(self, x, t) -> None:
         # Create one-hot vector for target as 10 classes are reasonably small
@@ -534,6 +545,8 @@ class vectorizedNN:
                 self.backward(xtrain_i, ytrain_i)
                 self.save_batch_grads()
 
+                assert np.sum(self.y) <= 1.1, f"y does not sum to 1: {np.sum(self.y)}"
+
                 if (i + 1) % minibatch_size == 0:
                     self.update(minibatch_size, lr)
                     self.reset_batch_grads()
@@ -546,6 +559,7 @@ class vectorizedNN:
 
             epoch_loss = epoch_loss / len(xtrain)
             epoch_loss_history.append(epoch_loss)
+            print(f"Train loss epoch {epoch}: {epoch_loss}")
 
         return epoch_loss_history
 
@@ -572,7 +586,7 @@ def vectorized_normalization(train, val, range: tuple) -> tuple:
 print(f"xtrain shape: {np.array(xtrain_mnist).shape}")
 img_shape = xtrain_mnist.shape[1:]
 print(f"ytrain: {ytrain_mnist[:10]}")
-# %% Cell test 2
+# %% Cell test 13
 print(
     f"Before norm:{np.max(xtrain_mnist), np.min(xtrain_mnist)}, {np.max(xval_mnist), np.min(xval_mnist)}"
 )
@@ -583,17 +597,19 @@ print(
     f"After norm:{np.max(xtrain_mnist_norm), np.min(xtrain_mnist_norm)}, {np.max(xval_mnist_norm), np.min(xval_mnist_norm)}"
 )
 
-
-# %% Cell test
-test_NN = vectorizedNN()
-test_NN.build_layer_1(img_shape, 300)
-test_NN.build_layer_2(300, num_cls_mnist)
-test_NN.train(
-    xtrain_mnist_norm[:100],
-    ytrain_mnist[:100],
-    xval_mnist_norm[:100],
-    yval_mnist[:100],
-    minibatch_size=5,
-    epochs=1,
-    lr=0.01,
+# %% Cell 14
+vec_NN = vectorizedNN()
+vec_NN.build_layer_1(img_shape, 300)
+vec_NN.build_layer_2(300, num_cls_mnist)
+vec_loss = vec_NN.train(
+    xtrain_mnist_norm,
+    ytrain_mnist,
+    xval_mnist_norm,
+    yval_mnist,
+    minibatch_size=500,
+    epochs=10,
+    lr=0.02,
 )
+
+# %% Cell 15
+plot_loss(vec_loss, save_img=True, img_title="vec_loss")
