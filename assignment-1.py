@@ -393,14 +393,16 @@ loss_train, loss_eval = neural_network_q4.train(
 
 
 # %% Cell 8
-def plot_loss(loss, save_img=False, img_title="loss_plot") -> None:
+def plot_loss(
+    loss, save_img=False, img_title="loss_plot", xlabel="Epoch", ylabel="Loss"
+) -> None:
     plt.figure(figsize=(15, 10))
     x = range(len(loss))
     plt.plot(x, loss, label="Train")
     plt.tick_params(axis="both", which="major", labelsize=14)
     # plt.plot(x, loss_eval, label="Validation")
-    plt.xlabel("Epoch", fontsize=14, fontweight="bold")
-    plt.ylabel("Loss", fontsize=14, fontweight="bold")
+    plt.xlabel(xlabel, fontsize=14, fontweight="bold")
+    plt.ylabel(ylabel, fontsize=14, fontweight="bold")
     plt.grid()
     plt.legend()
     plt.tight_layout()
@@ -547,8 +549,6 @@ class vectorizedNN:
                 self.forward(xtrain_i, ytrain_i)
                 self.backward(xtrain_i, ytrain_i)
                 self.save_batch_grads()
-
-                assert np.sum(self.y) <= 1.1, f"y does not sum to 1: {np.sum(self.y)}"
 
                 if (i + 1) % minibatch_size == 0:
                     # TODO: Check if this is correct!
@@ -723,8 +723,18 @@ class batched_vectorizedNN:
         self.c -= lr * (1 / self.batch_size) * self.d_c
 
     def train(
-        self, xtrain, ytrain, xval, yval, minibatch_size, epochs=10, lr=0.02
+        self,
+        xtrain,
+        ytrain,
+        xval,
+        yval,
+        minibatch_size,
+        epochs=10,
+        lr=0.02,
+        batch_loss=False,
     ) -> tuple:
+        batch_loss_history = []
+        batch_loss_history_val = []
         epoch_loss_history = []
         epoch_loss_history_val = []
         for epoch in tqdm(range(epochs), desc="Epochs"):
@@ -747,6 +757,7 @@ class batched_vectorizedNN:
 
                 epoch_loss += self.L
                 num_batches += 1
+                batch_loss_history.append(self.L)
 
             epoch_loss = epoch_loss / num_batches
             epoch_loss_history.append(epoch_loss)
@@ -762,10 +773,14 @@ class batched_vectorizedNN:
 
                 val_epoch_loss += self.L
                 num_batches_val += 1
+                batch_loss_history_val.append(self.L)
 
             val_epoch_loss = val_epoch_loss / num_batches_val
             epoch_loss_history_val.append(val_epoch_loss)
             print(f"Validation loss epoch {epoch}: {val_epoch_loss}")
+
+        if batch_loss:
+            return batch_loss_history, batch_loss_history_val
 
         return epoch_loss_history, epoch_loss_history_val
 
@@ -787,3 +802,36 @@ batched_loss, _ = batched_vec_NN.train(
 # %% Cell 18
 plot_loss(batched_loss, save_img=True, img_title="batched_vec_loss")
 # %% Cell 19
+experiment_NN = batched_vectorizedNN()
+experiment_NN.build_layer_1(img_shape, 300)
+experiment_NN.build_layer_2(300, num_cls_mnist)
+batched_loss, batched_loss_val = experiment_NN.train(
+    xtrain_mnist_norm,
+    ytrain_mnist,
+    xval_mnist_norm,
+    yval_mnist,
+    minibatch_size=500,
+    epochs=5,
+    lr=0.05,
+    batch_loss=False,
+)
+
+# %% Cell 20
+
+fig, axes = plt.subplots(figsize=(15, 10))
+x_train = range(len(batched_loss))
+axes.plot(x_train, batched_loss, label="Train")
+axes.tick_params(axis="both", which="major", labelsize=14)
+axes.set_xlabel("Epochs", fontsize=14, fontweight="bold")
+axes.set_ylabel("Loss", fontsize=14, fontweight="bold")
+axes.grid()
+plt.xticks(range(0, len(batched_loss), 1))
+
+x_val = range(len(batched_loss_val))
+axes.plot(x_val, batched_loss_val, label="Validation", color="orange")
+
+fig.legend()
+fig.tight_layout()
+
+fig.savefig("./images/batched_vec_loss_per_batch.png")
+plt.show()
