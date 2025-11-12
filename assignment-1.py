@@ -448,18 +448,21 @@ class vectorizedNN:
         self.batch_d_b = np.empty(0)
         self.batch_d_v = np.empty(0)
         self.batch_d_c = np.empty(0)
+        self.batch_size = 0
 
     def save_batch_grads(self) -> None:
         self.batch_d_w += self.d_w
         self.batch_d_b += self.d_b
         self.batch_d_v += self.d_v
         self.batch_d_c += self.d_c
+        self.batch_size += 1
 
     def reset_batch_grads(self) -> None:
         self.batch_d_w = np.zeros_like(self.w)
         self.batch_d_b = np.zeros_like(self.b)
         self.batch_d_v = np.zeros_like(self.v)
         self.batch_d_c = np.zeros_like(self.c)
+        self.batch_size = 0
 
     def print_grads(self) -> None:
         print("Gradients:")
@@ -526,11 +529,11 @@ class vectorizedNN:
         self.d_w = self.d_k @ x.T
         self.d_b = self.d_k
 
-    def update(self, minibatch_size, lr) -> None:
-        self.w -= lr * (1 / minibatch_size) * self.batch_d_w
-        self.v -= lr * (1 / minibatch_size) * self.batch_d_v
-        self.b -= lr * (1 / minibatch_size) * self.batch_d_b
-        self.c -= lr * (1 / minibatch_size) * self.batch_d_c
+    def update(self, lr) -> None:
+        self.w -= lr * (1 / self.batch_size) * self.batch_d_w
+        self.v -= lr * (1 / self.batch_size) * self.batch_d_v
+        self.b -= lr * (1 / self.batch_size) * self.batch_d_b
+        self.c -= lr * (1 / self.batch_size) * self.batch_d_c
 
     def train(
         self, xtrain, ytrain, xval, yval, minibatch_size, epochs=10, lr=0.02
@@ -548,9 +551,14 @@ class vectorizedNN:
                 assert np.sum(self.y) <= 1.1, f"y does not sum to 1: {np.sum(self.y)}"
 
                 if (i + 1) % minibatch_size == 0:
-                    self.update(minibatch_size, lr)
+                    # TODO: Check if this is correct!
+                    self.update(lr)
                     self.reset_batch_grads()
                 i += 1
+
+            if self.batch_size != 0:
+                self.update(lr)
+                self.reset_batch_grads()
 
             for xtrain_i, ytrain_i in zip(xtrain, ytrain):
                 xtrain_i = xtrain_i.reshape(-1, 1)
@@ -613,3 +621,149 @@ vec_loss = vec_NN.train(
 
 # %% Cell 15
 plot_loss(vec_loss, save_img=True, img_title="vec_loss")
+
+
+# %% Cell 16
+class batched_vectorizedNN:
+    def __init__(self) -> None:
+        # Forward
+        self.b = np.empty(0)
+        self.w = np.empty(0)
+        self.k = np.empty(0)
+        self.h = np.empty(0)
+        self.v = np.empty(0)
+        self.y = np.zeros(10)
+        self.c = np.empty(0)
+        self.L = 0.0
+        self.layers = []
+
+        # Backward
+        self.d_y = np.empty(0)
+        self.d_o = np.empty(0)
+        self.d_v = np.empty(0)
+        self.d_h = np.empty(0)
+        self.d_c = np.empty(0)
+        self.d_k = np.empty(0)
+        self.d_w = np.empty(0)
+        self.d_b = np.empty(0)
+        self.batch_size = 0
+
+    def print_grads(self) -> None:
+        print("Gradients:")
+        gradient_list = ["y", "o", "v", "h", "c", "k", "w", "b"]
+        gradient_values = [
+            self.d_y,
+            self.d_o,
+            self.d_v,
+            self.d_h,
+            self.d_c,
+            self.d_k,
+            self.d_w,
+            self.d_b,
+        ]
+        for name, value in zip(gradient_list, gradient_values):
+            print(f"{name}: {value}")
+
+    def build_layer_1(self, input_size, output_size) -> None:
+        if self.w.size == 0:
+            self.w = np.random.normal(0.0, 0.2, size=(output_size, input_size[0]))
+            self.batch_d_w = np.zeros((output_size, input_size[0]))
+
+        if self.b.size == 0:
+            self.b = np.zeros((output_size, 1))
+            self.batch_d_b = np.zeros((output_size, 1))
+
+    def build_layer_2(self, input_size, output_size) -> None:
+        if self.v.size == 0:
+            self.v = np.random.normal(0.0, 0.2, size=(output_size, input_size))
+            self.batch_d_v = np.zeros((output_size, input_size))
+
+        if self.c.size == 0:
+            self.c = np.zeros((output_size, 1))
+            self.batch_d_c = np.zeros((output_size, 1))
+
+    def sigmoid(self, k) -> np.ndarray:
+        # Prevents overflow
+        # Source: https://blog.dailydoseofds.com/p/a-highly-overlooked-point-in-the
+        sig = np.where(k > 0, 1 / (1 + np.exp(-k)), np.exp(k) / (1 + np.exp(k)))
+        return sig
+
+    def softmax(self, o) -> np.ndarray:
+        exp_o = np.exp(o - np.max(o, axis=0, keepdims=True))
+        # exp_o = np.exp(o)
+        return exp_o / np.sum(exp_o, axis=0, keepdims=True)
+
+    def forward(self, x, t) -> None:
+        self.batch_size = x.shape[1]
+        self.k = self.w @ x + self.b
+        self.h = self.sigmoid(self.k)
+        self.o = self.v @ self.h + self.c
+        self.y = self.softmax(self.o)
+
+        batched_y = self.y[t, np.arange(self.batch_size)]
+
+        self.L = np.sum(-np.log(batched_y)) / self.batch_size
+
+    def backward(self, x, t) -> None:
+        self.d_y = -(1 / self.y[t, np.arange(self.batch_size)])
+        # TODO: Check if this worked properly
+        self.d_o = self.y.copy()
+        self.d_o[t, np.arange(self.batch_size)] -= 1.0
+        self.d_v = self.d_o @ self.h.T
+        self.d_h = self.v.T @ self.d_o
+        self.d_c = np.sum(self.d_o, axis=1, keepdims=True)
+        self.d_k = self.d_h * self.h * (1 - self.h)
+        self.d_w = self.d_k @ x.T
+        self.d_b = np.sum(self.d_k, axis=1, keepdims=True)
+
+    def update(self, lr) -> None:
+        self.w -= lr * (1 / self.batch_size) * self.d_w
+        self.v -= lr * (1 / self.batch_size) * self.d_v
+        self.b -= lr * (1 / self.batch_size) * self.d_b
+        self.c -= lr * (1 / self.batch_size) * self.d_c
+
+    def train(
+        self, xtrain, ytrain, xval, yval, minibatch_size, epochs=10, lr=0.02
+    ) -> list:
+        epoch_loss_history = []
+        for epoch in tqdm(range(epochs), desc="Epochs"):
+            epoch_loss = 0.0
+            for slice in range(0, len(xtrain), minibatch_size):
+                slice_end = min(slice + minibatch_size, len(xtrain))
+                xtrain_batch = xtrain[slice:slice_end].T
+                ytrain_batch = ytrain[slice:slice_end]
+                self.forward(xtrain_batch, ytrain_batch)
+                self.backward(xtrain_batch, ytrain_batch)
+                self.update(lr)
+
+            # Training loss:
+            num_batches = 0
+            for slice in range(0, len(xtrain), minibatch_size):
+                slice_end = min(slice + minibatch_size, len(xtrain))
+                xtrain_batch = xtrain[slice:slice_end].T
+                ytrain_batch = ytrain[slice:slice_end]
+                self.forward(xtrain_batch, ytrain_batch)
+
+                epoch_loss += self.L
+                num_batches += 1
+
+            epoch_loss = epoch_loss / num_batches
+            epoch_loss_history.append(epoch_loss)
+            print(f"Train loss epoch {epoch}: {epoch_loss}")
+
+        return epoch_loss_history
+
+
+# %% Cell test 4
+batched_vec_NN = batched_vectorizedNN()
+batched_vec_NN.build_layer_1(img_shape, 300)
+batched_vec_NN.build_layer_2(300, num_cls_mnist)
+batched_loss = batched_vec_NN.train(
+    xtrain_mnist_norm,
+    ytrain_mnist,
+    xval_mnist_norm,
+    yval_mnist,
+    minibatch_size=500,
+    epochs=50,
+    lr=0.05,
+)
