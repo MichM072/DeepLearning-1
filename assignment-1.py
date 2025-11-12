@@ -724,8 +724,9 @@ class batched_vectorizedNN:
 
     def train(
         self, xtrain, ytrain, xval, yval, minibatch_size, epochs=10, lr=0.02
-    ) -> list:
+    ) -> tuple:
         epoch_loss_history = []
+        epoch_loss_history_val = []
         for epoch in tqdm(range(epochs), desc="Epochs"):
             epoch_loss = 0.0
             for slice in range(0, len(xtrain), minibatch_size):
@@ -751,14 +752,29 @@ class batched_vectorizedNN:
             epoch_loss_history.append(epoch_loss)
             print(f"Train loss epoch {epoch}: {epoch_loss}")
 
-        return epoch_loss_history
+            val_epoch_loss = 0.0
+            num_batches_val = 0
+            for slice in range(0, len(xval), minibatch_size):
+                slice_end = min(slice + minibatch_size, len(xval))
+                xval_batch = xval[slice:slice_end].T
+                yval_batch = yval[slice:slice_end]
+                self.forward(xval_batch, yval_batch)
+
+                val_epoch_loss += self.L
+                num_batches_val += 1
+
+            val_epoch_loss = val_epoch_loss / num_batches_val
+            epoch_loss_history_val.append(val_epoch_loss)
+            print(f"Validation loss epoch {epoch}: {val_epoch_loss}")
+
+        return epoch_loss_history, epoch_loss_history_val
 
 
-# %% Cell test 4
+# %% Cell 17
 batched_vec_NN = batched_vectorizedNN()
 batched_vec_NN.build_layer_1(img_shape, 300)
 batched_vec_NN.build_layer_2(300, num_cls_mnist)
-batched_loss = batched_vec_NN.train(
+batched_loss, _ = batched_vec_NN.train(
     xtrain_mnist_norm,
     ytrain_mnist,
     xval_mnist_norm,
@@ -767,3 +783,7 @@ batched_loss = batched_vec_NN.train(
     epochs=50,
     lr=0.05,
 )
+
+# %% Cell 18
+plot_loss(batched_loss, save_img=True, img_title="batched_vec_loss")
+# %% Cell 19
