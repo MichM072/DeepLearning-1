@@ -488,8 +488,8 @@ class vectorizedNN:
 
     def build_layer_1(self, input_size, output_size) -> None:
         if self.w.size == 0:
-            self.w = self.rng.normal(0.0, 0.2, size=(output_size, input_size[0]))
-            self.batch_d_w = np.zeros((output_size, input_size[0]))
+            self.w = self.rng.normal(0.0, 0.2, size=(output_size, input_size))
+            self.batch_d_w = np.zeros((output_size, input_size))
 
         if self.b.size == 0:
             self.b = np.zeros((output_size, 1))
@@ -596,7 +596,7 @@ def vectorized_normalization(train, val, range: tuple) -> tuple:
 (xtrain_mnist, ytrain_mnist), (xval_mnist, yval_mnist), num_cls_mnist = load_mnist()
 # %% Cell 12
 print(f"xtrain shape: {np.array(xtrain_mnist).shape}")
-img_shape = xtrain_mnist.shape[1:]
+img_shape = xtrain_mnist.shape[1]
 print(f"ytrain: {ytrain_mnist[:10]}")
 # %% Cell test 13
 print(
@@ -673,8 +673,8 @@ class batched_vectorizedNN:
 
     def build_layer_1(self, input_size, output_size) -> None:
         if self.w.size == 0:
-            self.w = self.rng.normal(0.0, 0.2, size=(output_size, input_size[0]))
-            self.batch_d_w = np.zeros((output_size, input_size[0]))
+            self.w = self.rng.normal(0.0, 0.2, size=(output_size, input_size))
+            self.batch_d_w = np.zeros((output_size, input_size))
 
         if self.b.size == 0:
             self.b = np.zeros((output_size, 1))
@@ -1017,6 +1017,8 @@ plt.show()
 
 # Load final test set
 (xtrain_mnist_final, ytrain_mnist_final), (xtest_mnist_final, ytest_mnist_final), num_cls_mnist_final = load_mnist(final=True)  # fmt: skip
+
+img_shape = xtrain_mnist_final.shape[1]
 
 xtrain_mnist_norm_final, xtest_mnist_norm_final = vectorized_normalization(
     np.array(xtrain_mnist_final), np.array(xtest_mnist_final), (0, 1)
