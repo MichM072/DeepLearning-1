@@ -394,11 +394,11 @@ loss_train, loss_eval = neural_network_q4.train(
 
 # %% Cell 8
 def plot_loss(
-    loss, save_img=False, img_title="loss_plot", xlabel="Epoch", ylabel="Loss"
-) -> None:
+    loss, save_img=False, img_title="loss_plot", plot_type="Train", xlabel="Epoch", ylabel="Loss"
+) -> None:  # fmt: skip
     plt.figure(figsize=(15, 10))
     x = range(len(loss))
-    plt.plot(x, loss, label="Train")
+    plt.plot(x, loss, label=plot_type)
     plt.tick_params(axis="both", which="major", labelsize=14)
     # plt.plot(x, loss_eval, label="Validation")
     plt.xlabel(xlabel, fontsize=14, fontweight="bold")
@@ -722,17 +722,8 @@ class batched_vectorizedNN:
         self.b -= lr * (1 / self.batch_size) * self.d_b
         self.c -= lr * (1 / self.batch_size) * self.d_c
 
-    def train(
-        self,
-        xtrain,
-        ytrain,
-        xval,
-        yval,
-        minibatch_size,
-        epochs=10,
-        lr=0.02,
-        batch_loss=False,
-    ) -> tuple:
+    def train(self, xtrain, ytrain, xval, yval,
+        minibatch_size,epochs=10, lr=0.02, batch_loss=False) -> tuple:  # fmt: skip
         batch_loss_history = []
         batch_loss_history_val = []
         epoch_loss_history = []
@@ -802,6 +793,38 @@ batched_loss, _ = batched_vec_NN.train(
 # %% Cell 18
 plot_loss(batched_loss, save_img=True, img_title="batched_vec_loss")
 # %% Cell 19
+# Start of q8, plot per batch
+batched_vec_NN = batched_vectorizedNN()
+batched_vec_NN.build_layer_1(img_shape, 300)
+batched_vec_NN.build_layer_2(300, num_cls_mnist)
+per_batch_loss_train, per_batch_loss_val = batched_vec_NN.train(
+    xtrain_mnist_norm,
+    ytrain_mnist,
+    xval_mnist_norm,
+    yval_mnist,
+    minibatch_size=500,
+    epochs=5,
+    lr=0.05,
+    batch_loss=True,
+)
+
+# %% Cell 20
+plot_loss(
+    per_batch_loss_train,
+    save_img=True,
+    img_title="train_per_batch_loss",
+    xlabel="Batches",
+)
+
+plot_loss(
+    per_batch_loss_val,
+    save_img=True,
+    img_title="val_per_batch_loss",
+    xlabel="Batches",
+    plot_type="Validation",
+)
+
+# %% Cell 21
 experiment_NN = batched_vectorizedNN()
 experiment_NN.build_layer_1(img_shape, 300)
 experiment_NN.build_layer_2(300, num_cls_mnist)
@@ -816,8 +839,7 @@ batched_loss, batched_loss_val = experiment_NN.train(
     batch_loss=False,
 )
 
-# %% Cell 20
-
+# %% Cell 22
 fig, axes = plt.subplots(figsize=(15, 10))
 x_train = range(len(batched_loss))
 axes.plot(x_train, batched_loss, label="Train")
@@ -833,5 +855,61 @@ axes.plot(x_val, batched_loss_val, label="Validation", color="orange")
 fig.legend()
 fig.tight_layout()
 
-fig.savefig("./images/batched_vec_loss_per_batch.png")
+fig.savefig("./images/batched_vec_loss_per_epoch.png")
 plt.show()
+# %% Cell 23
+batch_loss_train = []
+batch_loss_val = []
+for i in range(3):
+    experiment_NN = batched_vectorizedNN()
+    experiment_NN.build_layer_1(img_shape, 300)
+    experiment_NN.build_layer_2(300, num_cls_mnist)
+    batched_loss, batched_loss_val = experiment_NN.train(
+        xtrain_mnist_norm,
+        ytrain_mnist,
+        xval_mnist_norm,
+        yval_mnist,
+        minibatch_size=500,
+        epochs=5,
+        lr=0.05,
+        batch_loss=False,
+    )
+    batch_loss_train.append(batched_loss)
+    batch_loss_val.append(batched_loss_val)
+
+# %% Cell 24
+batch_loss_train = np.array(batch_loss_train)
+batch_loss_val = np.array(batch_loss_val)
+fig, axes = plt.subplots(figsize=(15, 10))
+
+x = range(len(batch_loss_train[0]))
+mu_train = np.mean(batch_loss_train, axis=0)
+std_train = np.std(batch_loss_train, axis=0)
+mu_val = np.mean(batch_loss_val, axis=0)
+std_val = np.std(batch_loss_val, axis=0)
+
+axes.plot(x, mu_train, label="Mean Train")
+axes.plot(x, mu_val, label="Mean Validation", color="orange")
+axes.fill_between(
+    x,
+    mu_train - std_train,
+    mu_train + std_train,
+    color="blue",
+    alpha=0.2,
+    label="Train Std Dev",
+)
+axes.fill_between(
+    x,
+    mu_val - std_val,
+    mu_val + std_val,
+    color="orange",
+    alpha=0.2,
+    label="Validation Std Dev",
+)
+axes.set_title("Train and Validation mean and std loss over 3 runs")
+axes.legend(loc="upper left")
+axes.set_xlabel("Epochs", fontsize=14, fontweight="bold")
+axes.set_ylabel("Loss", fontsize=14, fontweight="bold")
+axes.tick_params(axis="both", which="major", labelsize=14)
+plt.xticks(range(0, len(batch_loss_train[0]), 1))
+axes.grid()
