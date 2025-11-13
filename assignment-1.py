@@ -14,6 +14,7 @@ from tqdm import tqdm
 # %% Cell 2
 class simple_NN:
     def __init__(self) -> None:
+        # Forward
         self.x = [1.0, -1.0]
         self.t = [1.0, 0.0]
         self.k = [0.0, 0.0, 0.0]
@@ -311,8 +312,6 @@ def load():
 
 
 # %% Cell 6
-
-
 def encode_labels(labels, num_classes) -> list[list]:
     one_hot_labels = []
     for label in labels:
@@ -346,24 +345,6 @@ def normalize_values(train, val, range: tuple) -> tuple:
                 row_norm.append(train_i)
 
             norm_list.append(row_norm)
-
-    # for row_train, row_val in zip(train, val):
-    #     row_train_norm = []
-    #     row_val_norm = []
-    #     for i, j in zip(row_train, row_val):
-    #         train_i = (range[1] - range[0]) * (
-    #             (i - train_min) / (train_max - train_min)
-    #         ) + range[0]
-
-    #         val_j = (range[1] - range[0]) * (
-    #             (j - train_min) / (train_max - train_min)
-    #         ) + range[0]
-
-    #         row_train_norm.append(train_i)
-    #         row_val_norm.append(val_j)
-
-    #     normalized_train.append(row_train_norm)
-    #     normalized_val.append(row_val_norm)
 
     return normalized_train, normalized_val
 
@@ -960,6 +941,7 @@ axes.set_ylabel("Loss", fontsize=14, fontweight="bold")
 axes.tick_params(axis="both", which="major", labelsize=14)
 plt.xticks(range(0, len(batch_loss_train[0]), 1))
 axes.grid()
+fig.savefig("./images/mean_std_3_runs.png")
 # %% Cell 25
 loss_per_lr_train = []
 loss_per_lr_val = []
