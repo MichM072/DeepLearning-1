@@ -394,11 +394,12 @@ loss_train, loss_eval = neural_network_q4.train(
 
 # %% Cell 8
 def plot_loss(
-    loss, save_img=False, img_title="loss_plot", plot_type="Train", xlabel="Epoch", ylabel="Loss"
+    loss, save_img=False, img_title="loss_plot", plot_type="Train",
+    xlabel="Epoch", ylabel="Loss", marker=""
 ) -> None:  # fmt: skip
     plt.figure(figsize=(15, 10))
     x = range(len(loss))
-    plt.plot(x, loss, label=plot_type)
+    plt.plot(x, loss, label=plot_type, marker=marker)
     plt.tick_params(axis="both", which="major", labelsize=14)
     # plt.plot(x, loss_eval, label="Validation")
     plt.xlabel(xlabel, fontsize=14, fontweight="bold")
@@ -423,7 +424,7 @@ except Exception as e:
 
 # %% Cell 9
 class vectorizedNN:
-    def __init__(self) -> None:
+    def __init__(self, rng_seed=42) -> None:
         # Forward
         self.b = np.empty(0)
         self.w = np.empty(0)
@@ -451,6 +452,9 @@ class vectorizedNN:
         self.batch_d_v = np.empty(0)
         self.batch_d_c = np.empty(0)
         self.batch_size = 0
+
+        # RNG
+        self.rng = np.random.default_rng(rng_seed) if rng_seed is not None else np.random.default_rng()  # fmt: skip
 
     def save_batch_grads(self) -> None:
         self.batch_d_w += self.d_w
@@ -484,7 +488,7 @@ class vectorizedNN:
 
     def build_layer_1(self, input_size, output_size) -> None:
         if self.w.size == 0:
-            self.w = np.random.normal(0.0, 0.2, size=(output_size, input_size[0]))
+            self.w = self.rng.normal(0.0, 0.2, size=(output_size, input_size[0]))
             self.batch_d_w = np.zeros((output_size, input_size[0]))
 
         if self.b.size == 0:
@@ -493,7 +497,7 @@ class vectorizedNN:
 
     def build_layer_2(self, input_size, output_size) -> None:
         if self.v.size == 0:
-            self.v = np.random.normal(0.0, 0.2, size=(output_size, input_size))
+            self.v = self.rng.normal(0.0, 0.2, size=(output_size, input_size))
             self.batch_d_v = np.zeros((output_size, input_size))
 
         if self.c.size == 0:
@@ -625,7 +629,7 @@ plot_loss(vec_loss, save_img=True, img_title="vec_loss")
 
 # %% Cell 16
 class batched_vectorizedNN:
-    def __init__(self) -> None:
+    def __init__(self, rng_seed: int | None = 42) -> None:
         # Forward
         self.b = np.empty(0)
         self.w = np.empty(0)
@@ -648,6 +652,9 @@ class batched_vectorizedNN:
         self.d_b = np.empty(0)
         self.batch_size = 0
 
+        # RNG
+        self.rng = np.random.default_rng(rng_seed) if rng_seed is not None else np.random.default_rng()  # fmt: skip
+
     def print_grads(self) -> None:
         print("Gradients:")
         gradient_list = ["y", "o", "v", "h", "c", "k", "w", "b"]
@@ -666,7 +673,7 @@ class batched_vectorizedNN:
 
     def build_layer_1(self, input_size, output_size) -> None:
         if self.w.size == 0:
-            self.w = np.random.normal(0.0, 0.2, size=(output_size, input_size[0]))
+            self.w = self.rng.normal(0.0, 0.2, size=(output_size, input_size[0]))
             self.batch_d_w = np.zeros((output_size, input_size[0]))
 
         if self.b.size == 0:
@@ -675,7 +682,7 @@ class batched_vectorizedNN:
 
     def build_layer_2(self, input_size, output_size) -> None:
         if self.v.size == 0:
-            self.v = np.random.normal(0.0, 0.2, size=(output_size, input_size))
+            self.v = self.rng.normal(0.0, 0.2, size=(output_size, input_size))
             self.batch_d_v = np.zeros((output_size, input_size))
 
         if self.c.size == 0:
@@ -722,12 +729,15 @@ class batched_vectorizedNN:
         self.b -= lr * (1 / self.batch_size) * self.d_b
         self.c -= lr * (1 / self.batch_size) * self.d_c
 
-    def train(self, xtrain, ytrain, xval, yval,
-        minibatch_size,epochs=10, lr=0.02, batch_loss=False) -> tuple:  # fmt: skip
+    def train(self, xtrain, ytrain, xval=None, yval=None,
+        minibatch_size=500,epochs=10, lr=0.02, batch_loss=False) -> tuple:  # fmt: skip
         batch_loss_history = []
         batch_loss_history_val = []
         epoch_loss_history = []
         epoch_loss_history_val = []
+
+        if xval is None or yval is None:
+            print("No validation data provided, skipping validation step!")
         for epoch in tqdm(range(epochs), desc="Epochs"):
             epoch_loss = 0.0
             for slice in range(0, len(xtrain), minibatch_size):
@@ -752,10 +762,14 @@ class batched_vectorizedNN:
 
             epoch_loss = epoch_loss / num_batches
             epoch_loss_history.append(epoch_loss)
-            print(f"Train loss epoch {epoch}: {epoch_loss}")
+            print(f"Train loss epoch {epoch}: {epoch_loss:.3f}")
+
+            if xval is None or yval is None:
+                continue
 
             val_epoch_loss = 0.0
             num_batches_val = 0
+
             for slice in range(0, len(xval), minibatch_size):
                 slice_end = min(slice + minibatch_size, len(xval))
                 xval_batch = xval[slice:slice_end].T
@@ -768,12 +782,45 @@ class batched_vectorizedNN:
 
             val_epoch_loss = val_epoch_loss / num_batches_val
             epoch_loss_history_val.append(val_epoch_loss)
-            print(f"Validation loss epoch {epoch}: {val_epoch_loss}")
+            print(f"Validation loss epoch {epoch}: {val_epoch_loss:.3f}")
 
         if batch_loss:
             return batch_loss_history, batch_loss_history_val
 
         return epoch_loss_history, epoch_loss_history_val
+
+    def predict(self, x) -> np.ndarray:
+        self.forward(x.T, np.zeros(x.shape[0], dtype=int))
+        return np.argmax(self.y, axis=0)
+
+    def evaluate_accuracy(self, x, y) -> dict:
+        accuracy_dict = {}
+        predictions = self.predict(x)
+        correct_predictions = predictions == y
+        accuracy = np.mean(correct_predictions)
+
+        precision_per_class = []
+        recall_per_class = []
+        f1_score_per_class = []
+
+        for c in np.unique(y):
+            tp = np.sum((predictions == c) & (y == c))
+            fp = np.sum((predictions == c) & (y != c))
+            fn = np.sum((predictions != c) & (y == c))
+
+            precision = tp / (tp + fp)
+            recall = tp / (tp + fn)
+            f1_score = 2 * (precision * recall) / (precision + recall)
+            precision_per_class.append(precision)
+            recall_per_class.append(recall)
+            f1_score_per_class.append(f1_score)
+
+        accuracy_dict["accuracy"] = accuracy
+        accuracy_dict["precision"] = precision_per_class
+        accuracy_dict["recall"] = recall_per_class
+        accuracy_dict["f1_score"] = f1_score_per_class
+
+        return accuracy_dict
 
 
 # %% Cell 17
@@ -791,7 +838,7 @@ batched_loss, _ = batched_vec_NN.train(
 )
 
 # %% Cell 18
-plot_loss(batched_loss, save_img=True, img_title="batched_vec_loss")
+plot_loss(batched_loss, save_img=True, img_title="batched_vec_loss", marker="o")
 # %% Cell 19
 # Start of q8, plot per batch
 batched_vec_NN = batched_vectorizedNN()
@@ -842,7 +889,7 @@ batched_loss, batched_loss_val = experiment_NN.train(
 # %% Cell 22
 fig, axes = plt.subplots(figsize=(15, 10))
 x_train = range(len(batched_loss))
-axes.plot(x_train, batched_loss, label="Train")
+axes.plot(x_train, batched_loss, label="Train", marker="o")
 axes.tick_params(axis="both", which="major", labelsize=14)
 axes.set_xlabel("Epochs", fontsize=14, fontweight="bold")
 axes.set_ylabel("Loss", fontsize=14, fontweight="bold")
@@ -850,7 +897,7 @@ axes.grid()
 plt.xticks(range(0, len(batched_loss), 1))
 
 x_val = range(len(batched_loss_val))
-axes.plot(x_val, batched_loss_val, label="Validation", color="orange")
+axes.plot(x_val, batched_loss_val, label="Validation", color="orange", marker="o")
 
 fig.legend()
 fig.tight_layout()
@@ -861,7 +908,7 @@ plt.show()
 batch_loss_train = []
 batch_loss_val = []
 for i in range(3):
-    experiment_NN = batched_vectorizedNN()
+    experiment_NN = batched_vectorizedNN(rng_seed=None)
     experiment_NN.build_layer_1(img_shape, 300)
     experiment_NN.build_layer_2(300, num_cls_mnist)
     batched_loss, batched_loss_val = experiment_NN.train(
@@ -888,8 +935,8 @@ std_train = np.std(batch_loss_train, axis=0)
 mu_val = np.mean(batch_loss_val, axis=0)
 std_val = np.std(batch_loss_val, axis=0)
 
-axes.plot(x, mu_train, label="Mean Train")
-axes.plot(x, mu_val, label="Mean Validation", color="orange")
+axes.plot(x, mu_train, label="Mean Train", marker="o")
+axes.plot(x, mu_val, label="Mean Validation", color="orange", marker="o")
 axes.fill_between(
     x,
     mu_train - std_train,
@@ -907,9 +954,93 @@ axes.fill_between(
     label="Validation Std Dev",
 )
 axes.set_title("Train and Validation mean and std loss over 3 runs")
-axes.legend(loc="upper left")
+axes.legend(loc="upper right")
 axes.set_xlabel("Epochs", fontsize=14, fontweight="bold")
 axes.set_ylabel("Loss", fontsize=14, fontweight="bold")
 axes.tick_params(axis="both", which="major", labelsize=14)
 plt.xticks(range(0, len(batch_loss_train[0]), 1))
 axes.grid()
+# %% Cell 25
+loss_per_lr_train = []
+loss_per_lr_val = []
+
+lr_values = [0.001, 0.003, 0.05, 0.03, 0.01]
+
+for lr in lr_values:
+    experiment_NN = batched_vectorizedNN()
+    experiment_NN.build_layer_1(img_shape, 300)
+    experiment_NN.build_layer_2(300, num_cls_mnist)
+    train_loss_lr, val_loss_lr = experiment_NN.train(
+        xtrain_mnist_norm,
+        ytrain_mnist,
+        xval_mnist_norm,
+        yval_mnist,
+        minibatch_size=500,
+        epochs=5,
+        lr=lr,
+        batch_loss=False,
+    )
+    loss_per_lr_train.append(train_loss_lr)
+    loss_per_lr_val.append(val_loss_lr)
+
+
+# %% Cell 26
+fig, axes = plt.subplots(1, 2, figsize=(15, 10))
+for i, loss in enumerate(zip(loss_per_lr_train, loss_per_lr_val)):
+    train_loss, val_loss = loss
+    axes[0].plot(
+        range(len(train_loss)), train_loss, label=f"lr={lr_values[i]}", marker="o"
+    )
+    axes[1].plot(range(len(val_loss)), val_loss, label=f"lr={lr_values[i]}", marker="o")
+
+axes[0].set_title("Train Loss per learning rate")
+axes[0].set_xlabel("Epochs", fontsize=14, fontweight="bold")
+axes[0].set_ylabel("Loss", fontsize=14, fontweight="bold")
+axes[0].tick_params(axis="both", which="major", labelsize=14)
+axes[0].grid()
+axes[0].legend()
+axes[0].set_xticks(range(0, len(loss_per_lr_train[0]), 1))
+
+axes[1].set_title("Validation Loss per learning rate")
+axes[1].set_xlabel("Epochs", fontsize=14, fontweight="bold")
+axes[1].set_ylabel("Loss", fontsize=14, fontweight="bold")
+axes[1].tick_params(axis="both", which="major", labelsize=14)
+axes[1].grid()
+axes[1].legend()
+axes[1].set_xticks(range(0, len(loss_per_lr_train[0]), 1))
+
+fig.tight_layout()
+fig.savefig("./images/lr_experiment_loss.png")
+plt.show()
+# %% Cell 27
+# Final test accuracy
+
+# Load final test set
+(xtrain_mnist_final, ytrain_mnist_final), (xtest_mnist_final, ytest_mnist_final), num_cls_mnist_final = load_mnist(final=True)  # fmt: skip
+
+xtrain_mnist_norm_final, xval_mnist_norm_final = vectorized_normalization(
+    np.array(xtrain_mnist_final), np.array(xtest_mnist_final), (0, 1)
+)
+
+final_NN = batched_vectorizedNN()
+final_NN.build_layer_1(img_shape, 300)
+final_NN.build_layer_2(300, num_cls_mnist_final)
+batched_loss, batched_loss_val = final_NN.train(
+    xtrain_mnist_norm,
+    ytrain_mnist,
+    minibatch_size=500,
+    epochs=5,
+    lr=0.05,
+    batch_loss=False,
+)
+
+# %% Cell 28
+accuracy = final_NN.evaluate_accuracy(xval_mnist_norm_final, ytest_mnist_final)
+print("Using most promising lr 0.05 from previous experiment.")
+print("Final test accuracy:")
+for key, value in accuracy.items():
+    if key == "accuracy":
+        print(f"{key}: {value:.3f}")
+    else:
+        print(f"{key} | \nclass: {np.arange(len(value))}")
+        print(f"{[f'{v:.3f}' for v in value]}")
