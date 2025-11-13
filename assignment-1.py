@@ -1018,7 +1018,7 @@ plt.show()
 # Load final test set
 (xtrain_mnist_final, ytrain_mnist_final), (xtest_mnist_final, ytest_mnist_final), num_cls_mnist_final = load_mnist(final=True)  # fmt: skip
 
-xtrain_mnist_norm_final, xval_mnist_norm_final = vectorized_normalization(
+xtrain_mnist_norm_final, xtest_mnist_norm_final = vectorized_normalization(
     np.array(xtrain_mnist_final), np.array(xtest_mnist_final), (0, 1)
 )
 
@@ -1035,7 +1035,7 @@ batched_loss, batched_loss_val = final_NN.train(
 )
 
 # %% Cell 28
-accuracy = final_NN.evaluate_accuracy(xval_mnist_norm_final, ytest_mnist_final)
+accuracy = final_NN.evaluate_accuracy(xtest_mnist_norm_final, ytest_mnist_final)
 print("Using most promising lr 0.05 from previous experiment.")
 print("Final test accuracy:")
 for key, value in accuracy.items():
