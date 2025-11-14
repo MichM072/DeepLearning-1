@@ -41,7 +41,6 @@ class simple_NN:
         r.seed(rng_seed) if rng_seed is not None else r.seed()
 
     def initialize_weights(self, strategy="random") -> None:
-        # TODO: Ask ta if this random is correct!
         if strategy == "random":
             for j in range(len(self.k)):
                 for i in range(len(self.x)):
@@ -96,11 +95,9 @@ class simple_NN:
 
         self.y = self.softmax(self.o)
 
-        # TODO: Check if this is correct.
         self.L = sum(-m.log(y) * t for y, t in zip(self.y, self.t))
 
     def backward(self) -> None:
-        # TODO: Do we really need d_y? Ask ta!
         self.d_y = [(-1 / y) * t for y, t in zip(self.y, self.t)]
         self.d_o = [y - t for y, t in zip(self.y, self.t)]
 
@@ -418,7 +415,7 @@ try:
     plot_loss(
         loss_train,
         save_img=True,
-        img_title="loss_simpleNN_lr0.002",
+        img_title="loss_simpleNN_lr0.01",
         plot_type="Train",
         marker="o",
     )
@@ -515,8 +512,8 @@ class vectorizedNN:
         return sig
 
     def softmax(self, o) -> np.ndarray:
+        # Prevent overflow
         exp_o = np.exp(o - np.max(o, axis=0, keepdims=True))
-        # exp_o = np.exp(o)
         return exp_o / np.sum(exp_o, axis=0, keepdims=True)
 
     def forward(self, x, t) -> None:
@@ -569,11 +566,11 @@ class vectorizedNN:
                 self.save_batch_grads()
 
                 if (i + 1) % minibatch_size == 0:
-                    # TODO: Check if this is correct!
                     self.update(lr)
                     self.reset_batch_grads()
                 i += 1
 
+            # Update for the remaining batch
             if self.batch_size != 0:
                 self.update(lr)
                 self.reset_batch_grads()
@@ -638,7 +635,7 @@ vec_loss = vec_NN.train(
 )
 
 # %% Cell 15
-plot_loss(vec_loss, save_img=True, img_title="vec_loss")
+plot_loss(vec_loss, save_img=True, img_title="vec_loss", marker="o")
 
 
 # %% Cell 16
@@ -710,8 +707,8 @@ class batched_vectorizedNN:
         return sig
 
     def softmax(self, o) -> np.ndarray:
+        # Prevents overflow
         exp_o = np.exp(o - np.max(o, axis=0, keepdims=True))
-        # exp_o = np.exp(o)
         return exp_o / np.sum(exp_o, axis=0, keepdims=True)
 
     def forward(self, x, t) -> None:
