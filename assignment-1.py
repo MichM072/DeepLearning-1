@@ -38,22 +38,18 @@ class simple_NN:
         self.d_b = [0.0, 0.0, 0.0]
 
         # RNG
-        self.rng = (
-            np.random.default_rng(seed=rng_seed)
-            if rng_seed is not None
-            else np.random.default_rng()
-        )
+        r.seed(rng_seed) if rng_seed is not None else r.seed()
 
     def initialize_weights(self, strategy="random") -> None:
         # TODO: Ask ta if this random is correct!
         if strategy == "random":
             for j in range(len(self.k)):
                 for i in range(len(self.x)):
-                    self.w[i][j] = self.rng.normal(0.0, 0.2)
+                    self.w[i][j] = r.normalvariate(0.0, 0.2)
 
             for j in range(len(self.o)):
                 for i in range(len(self.h)):
-                    self.v[i][j] = self.rng.normal(0.0, 0.2)
+                    self.v[i][j] = r.normalvariate(0.0, 0.2)
 
     def print_grads(self) -> None:
         print("Gradients:")
@@ -149,11 +145,11 @@ class simple_NN:
             if SGD:
                 # Shuffle data for SGD
                 # Use new rng with random init for each epoch
-                SGD_rng = np.random.default_rng()
-                indices = np.arange(len(xtrain))
-                SGD_rng.shuffle(indices)
-                xtrain = xtrain[indices]
-                ytrain = ytrain[indices]
+                indices = list(range(len(xtrain)))
+                r.shuffle(indices)
+
+                xtrain = [xtrain[i] for i in indices]
+                ytrain = [ytrain[i] for i in indices]
 
             for xtrain_i, ytrain_i in zip(xtrain, ytrain):
                 self.forward(xtrain_i, ytrain_i)
@@ -387,6 +383,7 @@ print(f"xval: {xval_norm[:10]}")
 
 # %% Cell 7
 neural_network_q4 = simple_NN()
+print(xtrain_norm[1])
 neural_network_q4.initialize_weights()
 loss_train, loss_eval = neural_network_q4.train(
     xtrain_norm, ytrain_enc, xval_norm, yval_enc, epochs=50, lr=0.02, SGD=True
