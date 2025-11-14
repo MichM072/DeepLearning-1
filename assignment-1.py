@@ -45,11 +45,11 @@ class simple_NN:
         if strategy == "random":
             for j in range(len(self.k)):
                 for i in range(len(self.x)):
-                    self.w[i][j] = r.normalvariate(0.0, 0.2)
+                    self.w[i][j] = r.normalvariate(0.0, 0.3)
 
             for j in range(len(self.o)):
                 for i in range(len(self.h)):
-                    self.v[i][j] = r.normalvariate(0.0, 0.2)
+                    self.v[i][j] = r.normalvariate(0.0, 0.3)
 
     def print_grads(self) -> None:
         print("Gradients:")
@@ -386,7 +386,7 @@ neural_network_q4 = simple_NN()
 print(xtrain_norm[1])
 neural_network_q4.initialize_weights()
 loss_train, loss_eval = neural_network_q4.train(
-    xtrain_norm, ytrain_enc, xval_norm, yval_enc, epochs=50, lr=0.02, SGD=True
+    xtrain_norm, ytrain_enc, xval_norm, yval_enc, epochs=50, lr=0.01, SGD=True
 )
 
 
@@ -415,7 +415,13 @@ def plot_loss(
 
 
 try:
-    plot_loss(loss_train)
+    plot_loss(
+        loss_train,
+        save_img=True,
+        img_title="loss_simpleNN_lr0.002",
+        plot_type="Train",
+        marker="o",
+    )
 except Exception as e:
     print(e)
 
@@ -486,7 +492,7 @@ class vectorizedNN:
 
     def build_layer_1(self, input_size, output_size) -> None:
         if self.w.size == 0:
-            self.w = self.rng.normal(0.0, 0.2, size=(output_size, input_size))
+            self.w = self.rng.normal(0.0, 0.3, size=(output_size, input_size))
             self.batch_d_w = np.zeros((output_size, input_size))
 
         if self.b.size == 0:
@@ -495,7 +501,7 @@ class vectorizedNN:
 
     def build_layer_2(self, input_size, output_size) -> None:
         if self.v.size == 0:
-            self.v = self.rng.normal(0.0, 0.2, size=(output_size, input_size))
+            self.v = self.rng.normal(0.0, 0.3, size=(output_size, input_size))
             self.batch_d_v = np.zeros((output_size, input_size))
 
         if self.c.size == 0:
@@ -681,7 +687,7 @@ class batched_vectorizedNN:
 
     def build_layer_1(self, input_size, output_size) -> None:
         if self.w.size == 0:
-            self.w = self.rng.normal(0.0, 0.2, size=(output_size, input_size))
+            self.w = self.rng.normal(0.0, 0.3, size=(output_size, input_size))
             self.batch_d_w = np.zeros((output_size, input_size))
 
         if self.b.size == 0:
@@ -690,7 +696,7 @@ class batched_vectorizedNN:
 
     def build_layer_2(self, input_size, output_size) -> None:
         if self.v.size == 0:
-            self.v = self.rng.normal(0.0, 0.2, size=(output_size, input_size))
+            self.v = self.rng.normal(0.0, 0.3, size=(output_size, input_size))
             self.batch_d_v = np.zeros((output_size, input_size))
 
         if self.c.size == 0:
