@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 # %% Cell 2
 class simple_NN:
-    def __init__(self) -> None:
+    def __init__(self, rng_seed: int | None = 42) -> None:
         # Forward
         self.x = [1.0, -1.0]
         self.t = [1.0, 0.0]
@@ -37,16 +37,23 @@ class simple_NN:
         self.d_w = [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
         self.d_b = [0.0, 0.0, 0.0]
 
+        # RNG
+        self.rng = (
+            np.random.default_rng(seed=rng_seed)
+            if rng_seed is not None
+            else np.random.default_rng()
+        )
+
     def initialize_weights(self, strategy="random") -> None:
         # TODO: Ask ta if this random is correct!
         if strategy == "random":
             for j in range(len(self.k)):
                 for i in range(len(self.x)):
-                    self.w[i][j] = r.uniform(-1.0, 1.0)
+                    self.w[i][j] = self.rng.normal(0.0, 0.2)
 
             for j in range(len(self.o)):
                 for i in range(len(self.h)):
-                    self.v[i][j] = r.uniform(-1.0, 1.0)
+                    self.v[i][j] = self.rng.normal(0.0, 0.2)
 
     def print_grads(self) -> None:
         print("Gradients:")
@@ -131,11 +138,21 @@ class simple_NN:
         for i in range(len(self.c)):
             self.c[i] = self.c[i] - lr * self.d_c[i]
 
-    def train(self, xtrain, ytrain, xeval, yeval, epochs=10, lr=0.02) -> tuple:
+    def train(
+        self, xtrain, ytrain, xeval, yeval, epochs=10, lr=0.02, SGD=False
+    ) -> tuple:
         loss_history = []
         loss_history_eval = []
         for epoch in tqdm(range(epochs), desc="Epochs"):
             epoch_loss = 0.0
+
+            if SGD:
+                # Shuffle data for SGD
+                indices = np.arange(len(xtrain))
+                self.rng.shuffle(indices)
+                xtrain = xtrain[indices]
+                ytrain = ytrain[indices]
+
             for xtrain_i, ytrain_i in zip(xtrain, ytrain):
                 self.forward(xtrain_i, ytrain_i)
                 self.backward()
@@ -368,8 +385,9 @@ print(f"xval: {xval_norm[:10]}")
 
 # %% Cell 7
 neural_network_q4 = simple_NN()
+neural_network_q4.initialize_weights()
 loss_train, loss_eval = neural_network_q4.train(
-    xtrain_norm, ytrain_enc, xval_norm, yval_enc, epochs=50, lr=0.02
+    xtrain_norm, ytrain_enc, xval_norm, yval_enc, epochs=50, lr=0.02, SGD=True
 )
 
 
@@ -523,12 +541,20 @@ class vectorizedNN:
         self.c -= lr * (1 / self.batch_size) * self.batch_d_c
 
     def train(
-        self, xtrain, ytrain, xval, yval, minibatch_size, epochs=10, lr=0.02
+        self, xtrain, ytrain, xval, yval, minibatch_size, epochs=10, lr=0.02, SGD=True
     ) -> list:
         epoch_loss_history = []
         for epoch in tqdm(range(epochs), desc="Epochs"):
             epoch_loss = 0.0
             i = 0
+
+            if SGD:
+                # Shuffle data for SGD
+                indices = np.arange(len(xtrain))
+                self.rng.shuffle(indices)
+                xtrain = xtrain[indices]
+                ytrain = ytrain[indices]
+
             for xtrain_i, ytrain_i in zip(xtrain, ytrain):
                 xtrain_i = xtrain_i.reshape(-1, 1)
                 self.forward(xtrain_i, ytrain_i)
@@ -694,7 +720,6 @@ class batched_vectorizedNN:
 
     def backward(self, x, t) -> None:
         self.d_y = -(1 / self.y[t, np.arange(self.batch_size)])
-        # TODO: Check if this worked properly
         self.d_o = self.y.copy()
         self.d_o[t, np.arange(self.batch_size)] -= 1.0
         self.d_v = self.d_o @ self.h.T
@@ -711,7 +736,7 @@ class batched_vectorizedNN:
         self.c -= lr * (1 / self.batch_size) * self.d_c
 
     def train(self, xtrain, ytrain, xval=None, yval=None,
-        minibatch_size=500,epochs=10, lr=0.02, batch_loss=False) -> tuple:  # fmt: skip
+        minibatch_size=500,epochs=10, lr=0.02, batch_loss=False, SGD=True) -> tuple:  # fmt: skip
         batch_loss_history = []
         batch_loss_history_val = []
         epoch_loss_history = []
@@ -719,8 +744,16 @@ class batched_vectorizedNN:
 
         if xval is None or yval is None:
             print("No validation data provided, skipping validation step!")
+
         for epoch in tqdm(range(epochs), desc="Epochs"):
             epoch_loss = 0.0
+            if SGD:
+                # Shuffle data for SGD
+                indices = np.arange(len(xtrain))
+                self.rng.shuffle(indices)
+                xtrain = xtrain[indices]
+                ytrain = ytrain[indices]
+
             for slice in range(0, len(xtrain), minibatch_size):
                 slice_end = min(slice + minibatch_size, len(xtrain))
                 xtrain_batch = xtrain[slice:slice_end].T
