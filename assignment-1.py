@@ -148,8 +148,10 @@ class simple_NN:
 
             if SGD:
                 # Shuffle data for SGD
+                # Use new rng with random init for each epoch
+                SGD_rng = np.random.default_rng()
                 indices = np.arange(len(xtrain))
-                self.rng.shuffle(indices)
+                SGD_rng.shuffle(indices)
                 xtrain = xtrain[indices]
                 ytrain = ytrain[indices]
 
@@ -550,8 +552,10 @@ class vectorizedNN:
 
             if SGD:
                 # Shuffle data for SGD
+                # # Use new rng with random init for each epoch
+                SGD_rng = np.random.default_rng()
                 indices = np.arange(len(xtrain))
-                self.rng.shuffle(indices)
+                SGD_rng.shuffle(indices)
                 xtrain = xtrain[indices]
                 ytrain = ytrain[indices]
 
@@ -749,8 +753,10 @@ class batched_vectorizedNN:
             epoch_loss = 0.0
             if SGD:
                 # Shuffle data for SGD
+                # Use new rng with random init for each epoch
+                SGD_rng = np.random.default_rng()
                 indices = np.arange(len(xtrain))
-                self.rng.shuffle(indices)
+                SGD_rng.shuffle(indices)
                 xtrain = xtrain[indices]
                 ytrain = ytrain[indices]
 
@@ -846,9 +852,9 @@ batched_loss, _ = batched_vec_NN.train(
     ytrain_mnist,
     xval_mnist_norm,
     yval_mnist,
-    minibatch_size=500,
+    minibatch_size=32,
     epochs=50,
-    lr=0.05,
+    lr=0.003,
 )
 
 # %% Cell 18
@@ -863,9 +869,9 @@ per_batch_loss_train, per_batch_loss_val = batched_vec_NN.train(
     ytrain_mnist,
     xval_mnist_norm,
     yval_mnist,
-    minibatch_size=500,
+    minibatch_size=32,
     epochs=5,
-    lr=0.05,
+    lr=0.003,
     batch_loss=True,
 )
 
@@ -877,13 +883,13 @@ plot_loss(
     xlabel="Batches",
 )
 
-plot_loss(
-    per_batch_loss_val,
-    save_img=True,
-    img_title="val_per_batch_loss",
-    xlabel="Batches",
-    plot_type="Validation",
-)
+# plot_loss(
+#     per_batch_loss_val,
+#     save_img=True,
+#     img_title="val_per_batch_loss",
+#     xlabel="Batches",
+#     plot_type="Validation",
+# )
 
 # %% Cell 21
 experiment_NN = batched_vectorizedNN()
@@ -894,9 +900,9 @@ batched_loss, batched_loss_val = experiment_NN.train(
     ytrain_mnist,
     xval_mnist_norm,
     yval_mnist,
-    minibatch_size=500,
+    minibatch_size=32,
     epochs=5,
-    lr=0.05,
+    lr=0.003,
     batch_loss=False,
 )
 
@@ -930,9 +936,9 @@ for i in range(3):
         ytrain_mnist,
         xval_mnist_norm,
         yval_mnist,
-        minibatch_size=500,
+        minibatch_size=32,
         epochs=5,
-        lr=0.05,
+        lr=0.003,
         batch_loss=False,
     )
     batch_loss_train.append(batched_loss)
@@ -990,7 +996,7 @@ for lr in lr_values:
         ytrain_mnist,
         xval_mnist_norm,
         yval_mnist,
-        minibatch_size=500,
+        minibatch_size=32,
         epochs=5,
         lr=lr,
         batch_loss=False,
@@ -1045,7 +1051,7 @@ final_NN.build_layer_2(300, num_cls_mnist_final)
 batched_loss, batched_loss_val = final_NN.train(
     xtrain_mnist_norm,
     ytrain_mnist,
-    minibatch_size=500,
+    minibatch_size=32,
     epochs=5,
     lr=0.05,
     batch_loss=False,
